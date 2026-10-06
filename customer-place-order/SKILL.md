@@ -1,6 +1,6 @@
 ---
 name: customer-place-order
-description: 客户端自助下单，支持 PCB 制板/SMT 贴片/DIP 插件全流程。上传 Gerber/BOM 文件，配置工艺参数，创建订单并支付。当用户说"下单"、"客户端下单"、"PCB下单"、"打样"、"SMT下单"、"创建订单"、"返单"、"customer下单"时触发。
+description: 客户端自助下单，支持 PCB 制板/SMT 贴片/DIP 插件全流程。上传 Gerber/BOM 文件，配置工艺参数，创建订单并支付。当用户说"下单给晚成鸟"、"下单给pcbaSprint"、"PCB打样"、"SMT贴片下单"、"创建订单"、"返单"、"我要做板子"、"帮我下单"时触发。
 roles: [customer]
 owner: da
 requires_approval: true
