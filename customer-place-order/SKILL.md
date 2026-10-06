@@ -56,32 +56,46 @@ requires_approval: true
 
 客户下单通常有 Gerber/BOM 文件。上传后后端自动解析，返回文件分类结果和 PCB 参数。
 
-#### 2a. 本地文件上传
+#### 2a. 本地文件上传（统一路径）
 
-**小文件（≤200KB 原文）**：
+所有本地文件统一使用 `upload_order_file` 上传。该工具通过 multipart/form-data 直传后端，
+不经过 base64 编码，大小文件均适用（上限 100MB）。
 
-1. 如果是单个 PCB 设计源文件（.kicad_pcb/.PcbDoc/.brd/.asc 等），先打 zip：
+**上传步骤**：
+
+1. **准备文件**——未压缩的一律先打 zip：
+
+   | 用户给的是 | 处理 |
+   |-----------|------|
+   | 文件夹（Gerber/坐标/BOM 混在一起） | `zip -r 资料名.zip <文件夹路径>` |
+   | 单个 PCB 设计源文件（.kicad_pcb/.PcbDoc/.brd/.asc 等） | `zip 资料名.zip xxx.kicad_pcb` |
+   | 已是 .zip / .rar | 直接用 |
+   | 单个 .xlsx/.xls/.csv/.txt BOM 表（无 Gerber） | 也打 zip（后端只接受压缩包） |
+
+2. **获取文件字节数**（用于判断上传方式）：
    ```bash
-   zip output.zip input.kicad_pcb
+   stat -f%z file.zip    # macOS
+   stat -c%s file.zip    # Linux
    ```
-2. Base64 编码文件内容
-3. 调用 `upload_order_file(filename="name.zip", file_base64="<base64>")`
 
-**大文件（>200KB）**：
+3. **上传**——按文件大小选择方式：
 
-1. 如果是单个设计文件，先打 zip
-2. 调用 `start_chunked_upload(filename, total_size)` → 获取 `uploadId`
-3. 按 ~256KB 分片，逐片调用 `upload_file_chunk(upload_id, index, chunk_base64)`
-4. 全部分片传完后调用 `complete_chunked_upload(upload_id)`
+   **常规文件（≤10MB）**：直接调用 `upload_order_file(filename, file_base64=<base64>)`
 
-**文件夹**：先 `zip -r output.zip <文件夹>/`，再按上述流程上传。
+   **大文件（>10MB）**：使用分块上传三件套，避免单次传输超时：
+   1. `start_chunked_upload(filename, total_size)` → 获取 `uploadId`
+   2. 按 ~256KB 分片，逐片调用 `upload_file_chunk(upload_id, index, chunk_base64)`
+   3. 全部分片传完后调用 `complete_chunked_upload(upload_id)`
+
+> **为什么不用 OSS 直传**：客户端 MCP 未暴露 OSS STS 凭证工具，`upload_order_file` 已
+> 通过 multipart 直传后端，与管理端网页端上传效果一致，无需额外 OSS 步骤。
 
 #### 2b. 公网 URL 文件
 
 直接调用 `upload_order_file(filename, file_url="https://...")`
 
 > 注意：MCP 服务运行在云端，无法访问内网 URL（192.168.x / 10.x / 172.16-31.x / 127.x）。
-> 内网文件请用 file_base64 或分块上传。
+> 内网文件请用 `upload_order_file(file_base64=...)` 或分块上传。
 
 #### 2c. 上传返回值（重要）
 
@@ -358,7 +372,7 @@ zip 内文件按常规命名以便后端正确分类：
 | DIP > SMT | 提示调整数量关系 |
 | 手机号格式错 | 追问 11 位正确号码 |
 | 优惠券锁定失败 | 展示错误原因，可能券已过期或不满足门槛 |
-| 内网 URL 不可访问 | 改用 file_base64 或分块上传 |
+| 内网 URL 不可访问 | 改用 upload_order_file(file_base64=...) 或分块上传 |
 
 ---
 
@@ -368,8 +382,8 @@ zip 内文件按常规命名以便后端正确分类：
 |------|----------|
 | 查我的地址 | `list_addresses` |
 | 新建地址 | `create_address` |
-| 上传文件 | `upload_order_file` |
-| 大文件分块上传 | `start_chunked_upload` → `upload_file_chunk` → `complete_chunked_upload` |
+| 上传文件（统一入口） | `upload_order_file` |
+| 大文件分块上传（>10MB 备选） | `start_chunked_upload` → `upload_file_chunk` → `complete_chunked_upload` |
 | 创建订单 | `create_order` |
 | 查订单详情 | `get_order_detail` |
 | 查订单进度 | `get_order_timeline` |
